@@ -1,7 +1,78 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
-<svg width="960" height="500"></svg>
 <script src="//d3js.org/d3.v4.min.js"></script>
 <script>
-  
+
+    var margin = {top: 20, right: 10, bottom: 20, left: 10};
+
+    var width = 960 - margin.top - margin.bottom,
+    height = 500 - margin.right - margin.left;
+
+    var x = d3.scaleLinear()
+        .domain([0,100])
+        .range([0, width]);
+
+    var y = d3.scaleLinear()
+        .domain([-1000000,1000000])
+        .range([height, 0]);
+
+    var color = d3.scaleLinear()
+        .range(["#aad", "#556"]);
+
+    var area = d3.area()
+        .x(function(d,i) { return x(i); })
+        .y0(function(d) { return y(d[0]); })
+        .y1(function(d) { return y(d[1]); });
+
+    var stack = d3.stack()
+       // .keys(["apples", "bananas", "cherries", "dates"])
+        .order(d3.stackOrderNone)
+        .offset(d3.stackOffsetSilhouette );
+
+    function draw(error,data){
+
+        var nested = d3.nest()
+                .key(function(d){return d.Sugu})
+                .entries(data);
+
+        var keys = d3.keys(data[0]).filter(function(d){
+            return ["Sugu", "Vanus teadmata", "Kokku", "Aasta"].indexOf(d) === -1;
+        });
+
+        data = stack.keys(keys)(nested[0].values);
+        console.log(data);
+
+        var y_min = d3.min(data[0],function(d){return d[0]});
+        var y_max = d3.max(data[data.length-1], function(d){return d[1]});
+        y.domain([y_min,y_max]);
+
+        var svg = d3.select("body").append("svg")
+            .attr("width",width + margin.right + margin.left)
+            .attr("height",height + margin.top + margin.bottom)
+        .append("g")
+            .attr("transform","translate(" + margin.left + "," + margin.top + ")");
+
+        svg.selectAll("path")
+            .data(data)
+          .enter().append("path")
+            .attr("d", area)
+            .style("fill", function() { return color(Math.random()); });
+
+
+    }
+
+    function type(row) {
+        d3.keys(row).forEach(function(d){
+            if (d != "Sugu"){
+                row[d] = +row[d];
+            }
+        });
+        return row;
+    }
+
+    d3.tsv("RV021.csv")
+            .row(type)
+            .get(draw);
+
+
 </script>
