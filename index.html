@@ -3,13 +3,13 @@
 <script src="//d3js.org/d3.v4.min.js"></script>
 <script>
 
-    var margin = {top: 20, right: 10, bottom: 20, left: 10};
+    var margin = {top: 20, right: 50, bottom: 20, left: 10};
 
     var width = 960 - margin.top - margin.bottom,
     height = 500 - margin.right - margin.left;
 
     var x = d3.scaleLinear()
-        .domain([0,100])
+        .domain([0,85])
         .range([0, width]);
 
     var y = d3.scaleLinear()
@@ -27,7 +27,13 @@
     var stack = d3.stack()
        // .keys(["apples", "bananas", "cherries", "dates"])
         .order(d3.stackOrderNone)
-        .offset(d3.stackOffsetSilhouette );
+        .offset(d3.stackOffsetNone );
+
+    var xAxis = d3.axisBottom()
+        .scale(x);
+
+    var yAxis = d3.axisRight()
+        .scale(y);
 
     function draw(error,data){
 
@@ -57,6 +63,16 @@
           .enter().append("path")
             .attr("d", area)
             .style("fill", function() { return color(Math.random()); });
+
+        svg.append("g")
+            .attr("class", "x axis")
+            .attr("transform", "translate(0," + height + ")")
+            .call(xAxis);
+
+        svg.append("g")
+            .attr("class", "y axis")
+            .attr("transform", "translate(" + width + ",0)")
+            .call(yAxis);
 
 
     }
