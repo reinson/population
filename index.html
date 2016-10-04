@@ -3,24 +3,23 @@
 <script src="//d3js.org/d3.v4.min.js"></script>
 <script>
 
-    var margin = {top: 20, right: 50, bottom: 20, left: 10};
+    var margin = {top: 20, right: 75, bottom: 20, left: 10};
 
     var width = 960 - margin.top - margin.bottom,
     height = 500 - margin.right - margin.left;
 
     var x = d3.scaleLinear()
-        .domain([0,85])
+        .domain([1923,2016])
         .range([0, width]);
 
     var y = d3.scaleLinear()
-        .domain([-1000000,1000000])
         .range([height, 0]);
 
     var color = d3.scaleLinear()
         .range(["#aad", "#556"]);
 
     var area = d3.area()
-        .x(function(d,i) { return x(i); })
+        .x(function(d,i) { return x(d.data.Aasta); })
         .y0(function(d) { return y(d[0]); })
         .y1(function(d) { return y(d[1]); });
 
