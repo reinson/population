@@ -16,7 +16,7 @@
         .range([height, 0]);
 
     var color = d3.scaleLinear()
-        .range(["#aad", "#556"]);
+        .range(["#2c7bb6", "#00a6ca"]);
 
     var area = d3.area()
         .x(function(d,i) { return x(d.data.Aasta); })
@@ -57,11 +57,49 @@
         .append("g")
             .attr("transform","translate(" + margin.left + "," + margin.top + ")");
 
+        //Append a defs (for definition) element to your SVG
+        var defs = svg.append("defs");
+
+        var percentages = d3.range(-100,101,12.5),
+            grad_colors = ["#2c7bb6", "#00a6ca","#00ccbc","#90eb9d","#ffff8c","#f9d057","#f29e2e","#e76818","#d7191c"];
+        percentages = percentages.map(function(d,i){
+            return {
+                p: d,
+                color: grad_colors[i%9]
+            }
+        });
+
+        var grad_offsets = data.map(function(_,i){
+           return percentages.map(function(d){
+                return {
+                    p : d.p + i*5,
+                    color: d.color
+                }
+            });
+        });
+
+        defs.selectAll("linearGradient").data(grad_offsets)
+            .enter()
+            .append("linearGradient")
+            .attr("id", function(_,i){return "lg"+i})
+            .attr("x1", "0%")
+            .attr("y1", "0%")
+            .attr("x2", "100%")
+            .attr("y2", "0%")
+            .each(function(grad_data){
+                var linearGradient = d3.select(this);
+                linearGradient.selectAll("stop").data(grad_data)
+                    .enter().append("stop")
+                    .attr("offset", function(d) { return d.p + "%"; })
+                    .attr("stop-color", function(d) { return d.color; });
+            });
+
         svg.selectAll("path")
             .data(data)
           .enter().append("path")
             .attr("d", area)
-            .style("fill", function() { return color(Math.random()); });
+            .style("fill", function(_,i){ return  "url(#lg" + i +" )"});
+//            .style("fill", function() { return color(Math.random()); });
 
         svg.append("g")
             .attr("class", "x axis")
