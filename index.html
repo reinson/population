@@ -186,9 +186,9 @@
                 .attr("opacity",0.6).style("pointer-events","none");
 
         var year_population = svg.append("text").attr("class","hidden").text("tere").style("font-size","30px")
-                .attr("x",300).attr("y",-(width+5))
-                .style("text-anchor", "end")
-                .attr("transform", "rotate(90)" );
+                .attr("x",0).attr("y",20)
+                .style("text-anchor", "start");
+               // .attr("transform", "rotate(90)" );
 
         svg.append("g")
             .attr("class", "x axis")
