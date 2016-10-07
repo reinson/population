@@ -128,8 +128,6 @@
         var age_range = svg.append("text").attr("x",-40 ).attr("class","hidden");
         var year_label = svg.append("text").attr("class","hidden");
 
-
-
         svg.selectAll("path")
             .data(data)
           .enter().append("path")
@@ -165,7 +163,7 @@
                             .classed("hidden",false);
 
                     var pop = year_data[0].Kokku.toString();
-                    var pop = "Population of " + pop[0] + "'" + pop.substring(1,4) + "'" + pop.substring(4,8);
+                    pop = "Population of " + pop[0] + "'" + pop.substring(1,4) + "'" + pop.substring(4,8);
 
                     year_population.text(pop).classed("hidden",false);
 
@@ -204,6 +202,14 @@
                 color : cg(d/100)
             }
         });
+
+        svg.append("rect").attr("x",x(1939)).attr("y",50).attr("width",x(1950)-x(1939)).attr("height","300")
+                .attr("opacity",0.5).attr("fill","white")
+                .on("mouseover",function(){
+                    year_label.text("missing data").classed("hidden",false).attr("x",x(1939) )
+                            .attr("y",50)
+
+                })
 
         var legend_box = svg.append("g").attr("transform","translate(0," + (height +60) + ")");
 
