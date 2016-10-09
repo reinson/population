@@ -44,9 +44,6 @@
     var y = d3.scaleLinear()
         .range([height, 0]);
 
-    var color = d3.scaleLinear()
-        .range(["#2c7bb6", "#00a6ca"]);
-
     var area = d3.area()
         .x(function(d,i) { return x(d.data.Aasta); })
         .y0(function(d) { return y(d[0]); })
@@ -63,187 +60,203 @@
     var yAxis = d3.axisRight()
         .scale(y);
 
-    function draw(error,data){
+    var color = d3.interpolateRainbow;
 
+    function draw(error,data) {
+
+        // (1) Transform data:
         var nested = d3.nest()
-                .key(function(d){return d.Sugu})
+                .key(function (d) {
+                    return d.Sugu
+                })
                 .entries(data);
 
-        var keys = d3.keys(data[0]).filter(function(d){
+        var keys = d3.keys(data[0]).filter(function (d) {
             return ["Sugu", "Vanus teadmata", "Kokku", "Aasta"].indexOf(d) === -1;
         });
 
         data = stack.keys(keys)(nested[0].values);
-        console.log(data);
 
-        var y_min = d3.min(data[0],function(d){return d[0]});
-        var y_max = d3.max(data[data.length-1], function(d){return d[1]});
-        y.domain([y_min,y_max]);
+        var y_min = d3.min(data[0], function (d) {
+            return d[0]
+        });
+        var y_max = d3.max(data[data.length - 1], function (d) {
+            return d[1]
+        });
+        y.domain([y_min, y_max]);
 
+        // (2) Create svg
         var svg = d3.select("body").append("svg")
-            .attr("width",width + margin.right + margin.left)
-            .attr("height",height + margin.top + margin.bottom)
-        .append("g")
-            .attr("transform","translate(" + margin.left + "," + margin.top + ")");
+                .attr("width", width + margin.right + margin.left)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-        //Append a defs (for definition) element to your SVG
+        // (3) Create linear gradients for colored paths
         var defs = svg.append("defs");
 
-        var cg = d3.interpolateRainbow;
-        var percentages = d3.range(-100,101,8),
-           // grad_colors =  ["#FDA860", "#FC8669", "#E36172", "#C64277", "#E36172", "#FC8669" ,"#FDA860"];//
-           // grad_colors = ["#000428", "#004e92"];
-            grad_colors = d3.range(0,1.01,0.04).map(function(d){return cg(d)});
-        percentages = percentages.map(function(d,i){
-            return {
-                p: d,
-                color: grad_colors[i%25]
-            }
-        });
+        var gradientColors = d3.range(0, 1.01, 0.04).map(function (d) {
+                    return color(d)
+                }),
+                offsetPercentages = d3.range(-100, 101, 8).map(function (d, i) {
+                    return {
+                        p: d,
+                        color: gradientColors[i % 25]
+                    }
+                });
 
-        var grad_offsets = data.map(function(_,i){
-           return percentages.map(function(d){
+        var gradientOffset = data.map(function (_, i) {
+            return offsetPercentages.map(function (d) {
                 return {
-                    p : d.p + i*5.26,
+                    p: d.p + i * 5.26,
                     color: d.color
                 }
             });
         });
 
-        defs.selectAll("linearGradient").data(grad_offsets)
-            .enter()
-            .append("linearGradient")
-            .attr("id", function(_,i){return "lg"+i})
-            .attr("x1", "0%")
-            .attr("y1", "0%")
-            .attr("x2", "100%")
-            .attr("y2", "0%")
-            .each(function(grad_data){
-                var linearGradient = d3.select(this);
-                linearGradient.selectAll("stop").data(grad_data)
-                    .enter().append("stop")
-                    .attr("offset", function(d) { return d.p + "%"; })
-                    .attr("stop-color", function(d) { return d.color; });
-            });
-
-        var age_range = svg.append("text").attr("x",-40 ).attr("class","hidden");
-        var year_label = svg.append("text").attr("class","hidden");
-
-        svg.selectAll("path")
-            .data(data)
-          .enter().append("path")
-            .attr("d", area)
-            .style("fill", function(_,i){ return  "url(#lg" + i +" )"})
-            .on("mouseover", function(d){
-                d3.select(this).attr("opacity",0.75);
-                age_range.text(d.key).attr("y",function(){ return y((d[0][1]+d[0][0])/2 ) + 4}).classed("hidden",false)
-            })
-                .on("mousemove",function(d){debugger;
-                    var mouse = d3.mouse(this),
-                        mouse_year = Math.floor(x.invert(mouse[0])),
-
-                        year_data = nested[0].values.filter(function(d){
-                            return d.Aasta == mouse_year;
-                        }),
-
-                        stack_min = data[0].filter(function(d){
-                            return d.data.Aasta == mouse_year;
-                        })[0][0],
-
-                        stack_max = data[data.length-1].filter(function(d){
-                            return d.data.Aasta == mouse_year;
-                        })[0][1];
-
-                    year_label.text(mouse_year)
-                            .attr("x",x(mouse_year))
-                            .attr("y",y(stack_max)-10)
-                            .classed("hidden",false);
-
-                    year_line.attr("x1",x(mouse_year)).attr("x2",x(mouse_year))
-                            .attr("y1",y(stack_max)).attr("y2",y(stack_min))
-                            .classed("hidden",false);
-
-                    var pop = year_data[0].Kokku.toString();
-                    pop = "Population of " + pop[0] + "'" + pop.substring(1,4) + "'" + pop.substring(4,8);
-
-                    year_population.text(pop).classed("hidden",false);
-
+        defs.selectAll("linearGradient").data(gradientOffset)
+                .enter()
+                .append("linearGradient")
+                .attr("id", function (_, i) {
+                    return "lg" + i
                 })
-            .on("mouseout", function(d){
-                d3.select(this).attr("opacity",1);
-                age_range.classed("hidden",true);
-                year_line.classed("hidden",true);
-                year_label.classed("hidden",true);
-                year_population.classed("hidden",true)
-            });
+                .attr("x1", "0%")
+                .attr("y1", "0%")
+                .attr("x2", "100%")
+                .attr("y2", "0%")
+                .each(function (grad_data) {
+                    var linearGradient = d3.select(this);
+                    linearGradient.selectAll("stop").data(grad_data)
+                            .enter().append("stop")
+                            .attr("offset", function (d) {
+                                return d.p + "%";
+                            })
+                            .attr("stop-color", function (d) {
+                                return d.color;
+                            });
+                });
 
-        var year_line = svg.append("line").attr("x1",100).attr("x2",100).attr("y1",20).attr("y2",400)
-                .attr("stroke-width","2px").attr("stroke","white").attr("class","hidden")
-                .attr("opacity",0.6).style("pointer-events","none");
+        // (4) Create pahts
+        svg.selectAll("path")
+                .data(data)
+                .enter().append("path")
+                .attr("d", area)
+                .style("fill", function (_, i) {
+                    return "url(#lg" + i + " )"
+                })
+                .on("mouseover", mouseOver)
+                .on("mousemove", mouseMove)
+                .on("mouseout", mouseOut);
 
-        var year_population = svg.append("text").attr("class","hidden").text("tere").style("font-size","25px")
-                .attr("x",0).attr("y",20)
-                .style("text-anchor", "start");
-               // .attr("transform", "rotate(90)" );
+        // (5) Create labels and guides
+        var ageRangeLabel = svg.append("text").attr("x", -40).attr("class", "hidden"),
+            yearLabel = svg.append("text").attr("class", "hidden"),
+            yearLine = svg.append("line").attr("x1", 100).attr("x2", 100).attr("y1", 20).attr("y2", 400)
+                        .attr("stroke-width", "2px").attr("stroke", "white").attr("class", "hidden")
+                        .attr("opacity", 0.6).style("pointer-events", "none"),
+
+            yearPopulationLabel = svg.append("text").attr("class", "hidden").text("tere").style("font-size", "25px")
+                                    .attr("x", 0).attr("y", 20)
+                                    .style("text-anchor", "start"),
+
+            missingDataBox = svg.append("rect")
+                    .attr("x", x(1939)).attr("y", 50)
+                    .attr("width", x(1950) - x(1939)).attr("height", "300") // kirjutada eraldi funktsioon kõrguse jaoks
+                    .attr("opacity", 0.5).attr("fill", "white")
+                    .on("mouseover", function () {
+                        yearLabel.text("missing data").classed("hidden", false).attr("x", x(1939))
+                                .attr("y", 50)
+                    });
 
         svg.append("g")
-            .attr("class", "x axis")
-            .attr("transform", "translate(0," + (height + 5) + ")")
-            .call(xAxis);
+                .attr("class", "x axis")
+                .attr("transform", "translate(0," + (height + 5) + ")")
+                .call(xAxis);
 
-        // Create legend box
-        var lg_box_data = d3.range(0, 101, 4);
-        lg_box_data = lg_box_data.map(function(d){
-            return {
-                p: d + "%",
-                color : cg(d/100)
-            }
-        });
-
-        svg.append("rect").attr("x",x(1939)).attr("y",50).attr("width",x(1950)-x(1939)).attr("height","300")
-                .attr("opacity",0.5).attr("fill","white")
-                .on("mouseover",function(){
-                    year_label.text("missing data").classed("hidden",false).attr("x",x(1939) )
-                            .attr("y",50)
-
-                })
-
-        var legend_box = svg.append("g").attr("transform","translate(0," + (height +60) + ")");
+        // (6) Create legend box
+        var legendBox = svg.append("g").attr("transform", "translate(0," + (height + 60) + ")");
 
         defs.append("linearGradient")
-            .attr("id","legend_lg")
-            .attr("x1","0%")
-            .attr("y1","0%")
-            .attr("x2","100%")
-            .attr("y2","0%")
-            .selectAll("stop")
-            .data(lg_box_data)
-                .enter().append("stop")
-                .attr("offset",function(d){return d.p})
-                .attr("stop-color",function(d){return d.color });
+                .attr("id", "legend_lg")
+                .attr("x1", "0%")
+                .attr("y1", "0%")
+                .attr("x2", "100%")
+                .attr("y2", "0%")
+                .selectAll("stop")
+                .data(d3.range(0, 101, 4).map(function (d) {
+                            return {
+                                p: d + "%",
+                                color: color(d / 100)
+                            }
+                        })
+                ).enter().append("stop")
+                .attr("offset", function (d) {
+                    return d.p
+                })
+                .attr("stop-color", function (d) {
+                    return d.color
+                });
 
+        legendBox.append("rect").style("fill", "url(#legend_lg)")
+                .attr("width", width)
+                .attr("height", 20)
+                .attr("x", 0)
+                .attr("y", 10);
 
-        legend_box.append("rect").style("fill",  "url(#legend_lg)")
-            .attr("width", width)
-                .attr("height",20)
-                .attr("x",0)
-                .attr("y",10);
+        var boxAxis = d3.axisBottom().scale(x.copy().domain([1830, 2015]));
 
-        var box_scale = x.copy().domain([1830,2015]);
+        legendBox.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate(0,30)")
+                .call(boxAxis);
 
-        var boxAxis = d3.axisBottom()
-            .scale(box_scale);
+        legendBox.append("text").text("Birth years").attr("x", width / 2)
+                .style("text-anchor", "middle")
+                .classed("bornIn", true);
 
-        legend_box.append("g")
-            .attr("class", "x axis")
-            .attr("transform", "translate(0,30)")
-            .call(boxAxis);
+        // (7) Mouse over functionality
+        function mouseOver(d) {
+            d3.select(this).attr("opacity", 0.75);
+            ageRangeLabel.text(d.key)
+                    .attr("y", function () {
+                            return y((d[0][1] + d[0][0]) / 2) + 4
+                        })
+                    .classed("hidden", false)
+        }
 
-        legend_box.append("text").text("Birth years").attr("x",width/2)
-            .style("text-anchor", "middle")
-            .classed("bornIn",true)
+        function mouseMove(d) {
+            var mouse = d3.mouse(this),
+                mouseYear = Math.floor(x.invert(mouse[0])),
+                yearData = nested[0].values.filter(function (d) {
+                    return d.Aasta == mouseYear;
+                }),
+                stackMin = data[0].filter(function (d) { // for finding bottom of the yearLine
+                    return d.data.Aasta == mouseYear;
+                })[0][0],
+                stackMax = data[data.length - 1].filter(function (d) { // for finding the top of the yearLine
+                    return d.data.Aasta == mouseYear;
+                })[0][1];
 
+            yearLabel.text(mouseYear)
+                    .attr("x", x(mouseYear))
+                    .attr("y", y(stackMax) - 10)
+                    .classed("hidden", false);
 
+            yearLine.attr("x1", x(mouseYear)).attr("x2", x(mouseYear))
+                    .attr("y1", y(stackMax)).attr("y2", y(stackMin))
+                    .classed("hidden", false);
+
+            var population = yearData[0].Kokku.toString();
+            yearPopulationLabel.text("Population of " + d3.format(",d")(population)).classed("hidden", false);
+        }
+
+        function mouseOut(d) {
+            d3.select(this).attr("opacity", 1);
+            ageRangeLabel.classed("hidden", true);
+            yearLine.classed("hidden", true);
+            yearLabel.classed("hidden", true);
+            yearPopulationLabel.classed("hidden", true)
+        }
     }
 
     function type(row) {
