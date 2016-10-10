@@ -32,7 +32,7 @@
 </head>
 <script>
 
-    var margin = {top: 40, right: 75, bottom: 120, left: 50};
+    var margin = {top: 40, right: 170, bottom: 120, left: 50, between: 50};
 
     var width = 800 - margin.right - margin.left,
     height = 540 - margin.top - margin.bottom;
@@ -62,6 +62,16 @@
 
     var color = d3.interpolateRainbow;
 
+    var areaX = d3.scaleLinear().domain([0,120000]);
+    var areaY = d3.scalePoint();
+
+    var areaLine = d3.area()
+        .x0(0)
+        .x1(function(d,i) { return areaX(d.value); })
+        .y(function(d) { return areaY(d.key); });
+
+
+
     function draw(error,data) {
 
         // (1) Transform data:
@@ -71,11 +81,11 @@
                 })
                 .entries(data);
 
-        var keys = d3.keys(data[0]).filter(function (d) {
+        var ageGroups = d3.keys(data[0]).filter(function (d) {
             return ["Sugu", "Vanus teadmata", "Kokku", "Aasta"].indexOf(d) === -1;
         });
 
-        data = stack.keys(keys)(nested[0].values);
+        data = stack.keys(ageGroups)(nested[0].values);
 
         var y_min = d3.min(data[0], function (d) {
             return d[0]
@@ -135,7 +145,6 @@
                                 return d.color;
                             });
                 });
-
         // (4) Create pahts
         svg.selectAll("path")
                 .data(data)
@@ -167,6 +176,8 @@
                         yearLabel.text("missing data").classed("hidden", false).attr("x", x(1939))
                                 .attr("y", 50)
                     });
+
+        var areaG = svg.append("g");
 
         svg.append("g")
                 .attr("class", "x axis")
@@ -214,6 +225,15 @@
                 .style("text-anchor", "middle")
                 .classed("bornIn", true);
 
+        var areaLocationInfo = {
+            x: width + margin.between,
+            y: y(stackLineRange(data,2015).max),
+            height: y(stackLineRange(data,2015).min) - y(stackLineRange(data,2015).max),
+            width: margin.right - margin.between
+        }
+
+        draw_area(svg,areaLocationInfo,nested[0]);
+
         // (7) Mouse over functionality
         function mouseOver(d) {
             d3.select(this).attr("opacity", 0.75);
@@ -229,25 +249,26 @@
                 mouseYear = Math.floor(x.invert(mouse[0])),
                 yearData = nested[0].values.filter(function (d) {
                     return d.Aasta == mouseYear;
-                }),
-                stackMin = data[0].filter(function (d) { // for finding bottom of the yearLine
-                    return d.data.Aasta == mouseYear;
-                })[0][0],
-                stackMax = data[data.length - 1].filter(function (d) { // for finding the top of the yearLine
-                    return d.data.Aasta == mouseYear;
-                })[0][1];
+                })[0],
+                stackRange = stackLineRange(data,mouseYear);
+
 
             yearLabel.text(mouseYear)
                     .attr("x", x(mouseYear))
-                    .attr("y", y(stackMax) - 10)
+                    .attr("y", y(stackRange.max) - 10)
                     .classed("hidden", false);
 
             yearLine.attr("x1", x(mouseYear)).attr("x2", x(mouseYear))
-                    .attr("y1", y(stackMax)).attr("y2", y(stackMin))
+                    .attr("y1", y(stackRange.max)).attr("y2", y(stackRange.min))
                     .classed("hidden", false);
 
-            var population = yearData[0].Kokku.toString();
+            var population = yearData.Kokku.toString();
             yearPopulationLabel.text("Population of " + d3.format(",d")(population)).classed("hidden", false);
+
+            var newData = [d3.entries(yearData).filter(function(d){return ageGroups.indexOf(d.key)!= -1})];
+            debugger;
+
+            areaG.select("path").data(newData).transition().duration(500).attr("d",areaLine)
         }
 
         function mouseOut(d) {
@@ -257,6 +278,40 @@
             yearLabel.classed("hidden", true);
             yearPopulationLabel.classed("hidden", true)
         }
+
+        function stackLineRange(data,year){
+            var stackMin = data[0].filter(function (d) { // for finding bottom of the yearLine
+                    return d.data.Aasta == year;
+                })[0][0],
+                stackMax = data[data.length - 1].filter(function (d) { // for finding the top of the yearLine
+                    return d.data.Aasta == year;
+                })[0][1];
+            return {min: stackMin, max: stackMax}
+        }
+
+        function draw_area(svg,areaLocationInfo, areaData){
+
+            areaG.attr("transform","translate(" + areaLocationInfo.x + "," + areaLocationInfo.y + ")");
+
+            //areaG.append("rect").attr("width",areaLocationInfo.width).attr("height",areaLocationInfo.height);
+
+
+            areaX.range([0,areaLocationInfo.width]);
+            areaY.domain(ageGroups)
+                .range([areaLocationInfo.height,0]);
+              //  .padding(1);
+
+            var a = [d3.entries(areaData.values[0]).filter(function(d){return ageGroups.indexOf(d.key)!= -1})];
+
+            areaG.selectAll("path")
+                .data(a)
+                .enter().append("path")
+                .attr("d", areaLine)
+                .style("fill", "grey");
+        }
+
+
+
     }
 
     function type(row) {
