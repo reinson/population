@@ -34,9 +34,10 @@
     <script src="//d3js.org/d3.v4.min.js"></script>
 
 </head>
+
 <script>
 
-    var margin = {top: 40, right: 170, bottom: 120, left: 50, between: 30};
+    var margin = {top: 60, right: 170, bottom: 120, left: 50, between: 30};
 
     var width = 800 - margin.right - margin.left,
     height = 480 - margin.top - margin.bottom;
@@ -170,25 +171,23 @@
 
         // (5) Create labels and guides
         var ageRangeLabel = svg.append("text").attr("x", -40).attr("class", "hidden"),
-            yearLabel = svg.append("text").attr("class", "hidden"),
+            yearLabel = svg.append("text").attr("class", "hidden").attr("text-anchor","middle"),
             yearLine = svg.append("line").attr("x1", 100).attr("x2", 100).attr("y1", 20).attr("y2", 400)
                         .attr("stroke-width", "2px").attr("stroke", "white").attr("class", "hidden")
                         .attr("opacity", 0.6).style("pointer-events", "none"),
 
-            yearPopulationLabel = svg.append("text").attr("class", "hidden").text("tere").style("font-size", "25px")
-                                    .attr("x", 0).attr("y", 20)
+            yearPopulationLabel = svg.append("text").text("Demographics of Estonia").style("font-size", "25px")
+                                    .attr("x", 0).attr("y", -20)
                                     .style("text-anchor", "start"),
 
             missingDataBox = svg.append("rect")
-                    .attr("x", x(1939)).attr("y", 50)
-                    .attr("width", x(1950) - x(1939)).attr("height", "300") // kirjutada eraldi funktsioon kõrguse jaoks
+                    .attr("x", x(1939)).attr("y", 46)
+                    .attr("width", x(1950) - x(1939)).attr("height", "300")
                     .attr("opacity", 0.5).attr("fill", "white")
                     .on("mouseover", function () {
-                        yearLabel.text("missing data").classed("hidden", false).attr("x", x(1939))
+                        yearLabel.text("missing data").classed("hidden", false).attr("x", x(1945))
                                 .attr("y", 40)
                     });
-
-        var areaG = svg.append("g");
 
         svg.append("g")
                 .attr("class", "x axis")
@@ -225,7 +224,7 @@
                 .attr("x", 0)
                 .attr("y", 10);
 
-        var boxAxis = d3.axisTop().scale(x.copy().domain([1830, 2015]));
+        var boxAxis = d3.axisTop().scale(x.copy().domain([1830, 2040]));
 
         legendBox.append("g")
                 .attr("class", "x axis")
@@ -236,15 +235,7 @@
                 .style("text-anchor", "middle")
                 .classed("bornIn", true);
 
-        var areaLocationInfo = {
-            x: width + margin.between,
-            y: 250, //y(stackLineRange(data,2015).max),
-            height: 130,//y(stackLineRange(data,2015).max),
-            width: margin.right - margin.between
-        };
-
-      //  draw_area(nested[0]);
-
+        // Compute sparkline data and draw them
         var populationSize = nested[0].values.map(function(d){
             return {
                 x: d.Aasta,
@@ -282,7 +273,6 @@
                     y: workersSum / retiredSum
             }
         });
-        console.log(retiredToWorkers);
 
         var sparksData = [
                         {
@@ -332,9 +322,6 @@
                     .attr("y1", y(stackRange.max)).attr("y2", y(stackRange.min))
                     .classed("hidden", false);
 
-        /*    var population = yearData.Kokku.toString();
-            yearPopulationLabel.text("Population of " + d3.format(",d")(population)).classed("hidden", false);*/
-
             var newData = filterAgeGroups(yearData);
 
             areaG.select("path").data(newData).transition().duration(500).attr("d",areaLine)
@@ -345,7 +332,7 @@
             ageRangeLabel.classed("hidden", true);
             yearLine.classed("hidden", true);
             yearLabel.classed("hidden", true);
-            yearPopulationLabel.classed("hidden", true)
+          //  yearPopulationLabel.classed("hidden", true)
         }
 
         function stackLineRange(data,year){
@@ -367,14 +354,14 @@
                     .y(function(d){return sparkY(d.y)});
 
            svg.selectAll(".spark").data(data).enter().append("g").attr("class","sparkWrapper")
-               .attr("transform",function(d,i){return "translate("+ (width + margin.between) +"," + (i*130 + 25) + ")"  })
+               .attr("transform",function(d,i){return "translate("+ (width + margin.between) +"," + (i*120 + 25) + ")"  })
                .each(function(sparkData,i){
                    var sparkG = d3.select(this);
 
                    sparkG.append("text").text(sparkData.name)
-                           .attr("transform","translate(50,-15)");
+                           .attr("transform","translate(50,-12)");
 
-                   sparkG.append("text").attr("class","sparkValue").attr("transform","translate(50,45)").text("1230567");
+                   sparkG.append("text").attr("class","sparkValue").attr("transform","translate(50,42)").text("1230567");
 
                    var yExtent = d3.extent(sparkData.values, function(d){return d.y});
                    sparkY.domain(yExtent);
@@ -394,7 +381,8 @@
                 return d.values.filter(function(d){return d.x==year})[0].y;
             });
 
-            svg.selectAll(".sparkValue").data(activeValues).text(function(d){return d3.format(",d")(d)});
+            svg.selectAll(".sparkValue").data(activeValues).text(function(d,i){
+                return i==2 ? d3.format(".2n")(d) : d3.format(",d")(d)});
 
             svg.selectAll(".sparkWrapper").each(function(d,i){
                 d3.select(this).select("circle")
