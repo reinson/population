@@ -9,11 +9,15 @@
         .hidden {
             display: none
         }
-
+        .sparkWrapper text{
+            text-anchor: middle;
+        }
         text {
             font-family: "Lucida Grande", "Lucida Sans Unicode", "Lucida Sans", Geneva, Verdana, sans-serif;
             fill: #696969;
         }
+
+
 
         .bornIn {
 
@@ -32,13 +36,13 @@
 </head>
 <script>
 
-    var margin = {top: 40, right: 170, bottom: 120, left: 50, between: 50};
+    var margin = {top: 40, right: 170, bottom: 120, left: 50, between: 30};
 
     var width = 800 - margin.right - margin.left,
-    height = 540 - margin.top - margin.bottom;
+    height = 480 - margin.top - margin.bottom;
 
     var x = d3.scaleLinear()
-        .domain([1923,2016])
+        .domain([1923,2040])
         .range([0, width]);
 
     var y = d3.scaleLinear()
@@ -66,9 +70,14 @@
     var areaY = d3.scalePoint();
 
     var areaLine = d3.area()
+        .curve(d3.curveCardinal)
         .x0(0)
         .x1(function(d,i) { return areaX(d.value); })
         .y(function(d) { return areaY(d.key); });
+
+    var sparkYLocal = d3.local();
+
+    var sparkX = d3.scaleLinear().domain([1923,2040]).range([0,100]);
 
 
 
@@ -82,7 +91,7 @@
                 .entries(data);
 
         var ageGroups = d3.keys(data[0]).filter(function (d) {
-            return ["Sugu", "Vanus teadmata", "Kokku", "Aasta"].indexOf(d) === -1;
+            return ["Sugu", "Kokku", "Aasta"].indexOf(d) === -1;
         });
 
         data = stack.keys(ageGroups)(nested[0].values);
@@ -145,8 +154,10 @@
                                 return d.color;
                             });
                 });
+
         // (4) Create pahts
-        svg.selectAll("path")
+        svg.append("g").attr("class","pathWrapper")
+                .selectAll("path")
                 .data(data)
                 .enter().append("path")
                 .attr("d", area)
@@ -174,7 +185,7 @@
                     .attr("opacity", 0.5).attr("fill", "white")
                     .on("mouseover", function () {
                         yearLabel.text("missing data").classed("hidden", false).attr("x", x(1939))
-                                .attr("y", 50)
+                                .attr("y", 40)
                     });
 
         var areaG = svg.append("g");
@@ -214,25 +225,83 @@
                 .attr("x", 0)
                 .attr("y", 10);
 
-        var boxAxis = d3.axisBottom().scale(x.copy().domain([1830, 2015]));
+        var boxAxis = d3.axisTop().scale(x.copy().domain([1830, 2015]));
 
         legendBox.append("g")
                 .attr("class", "x axis")
-                .attr("transform", "translate(0,30)")
+                .attr("transform", "translate(0,10)")
                 .call(boxAxis);
 
-        legendBox.append("text").text("Birth years").attr("x", width / 2)
+        legendBox.append("text").text("Birth years").attr("x", width / 2).attr("y",52)
                 .style("text-anchor", "middle")
                 .classed("bornIn", true);
 
         var areaLocationInfo = {
             x: width + margin.between,
-            y: y(stackLineRange(data,2015).max),
-            height: y(stackLineRange(data,2015).min) - y(stackLineRange(data,2015).max),
+            y: 250, //y(stackLineRange(data,2015).max),
+            height: 130,//y(stackLineRange(data,2015).max),
             width: margin.right - margin.between
-        }
+        };
 
-        draw_area(svg,areaLocationInfo,nested[0]);
+      //  draw_area(nested[0]);
+
+        var populationSize = nested[0].values.map(function(d){
+            return {
+                x: d.Aasta,
+                y: d.Kokku
+            }});
+
+        var averageAgeData = nested[0].values.map(function(d){
+            var values = filterAgeGroups(d)[0];
+            var numerator = d3.sum(values, function(d){
+                                return d3.mean(d.key.split("-")
+                                            .map(function(d){return d=="85+" ? 90 : +d})
+                                                ) * d.value;
+                            });
+            var denominator = d3.sum(values, function(d){return d.value});
+            return {
+                x: d.Aasta,
+                y: numerator/denominator
+            }
+        });
+
+        var retiredToWorkers = nested[0].values.map(function(d){
+            var values = filterAgeGroups(d)[0];
+            var retiredSum = d3.sum(values, function(d){
+                return +d.key.split("-")[0] >= 65 ?  d.value : d.key =="85+" ? d.value : 0;
+            });
+            var workersSum = d3.sum(values, function(d){
+                var rangeStart = +d.key.split("-")[0];
+                if (rangeStart < 65 && rangeStart >= 20){
+                    return d.value
+                }
+                return 0;
+            });
+
+            return {x: d.Aasta,
+                    y: workersSum / retiredSum
+            }
+        });
+        console.log(retiredToWorkers);
+
+        var sparksData = [
+                        {
+                            values: populationSize,
+                            name: "Population size"
+                        },
+                        {
+                            values: averageAgeData,
+                            name: "Average age"
+                        },
+                        {
+                            values: retiredToWorkers,
+                            name: "Workers to retired"
+                        }
+                    ];
+        draw_sparklines(sparksData);
+
+        updateSparks(2016);
+
 
         // (7) Mouse over functionality
         function mouseOver(d) {
@@ -252,6 +321,7 @@
                 })[0],
                 stackRange = stackLineRange(data,mouseYear);
 
+            updateSparks(mouseYear);
 
             yearLabel.text(mouseYear)
                     .attr("x", x(mouseYear))
@@ -262,11 +332,10 @@
                     .attr("y1", y(stackRange.max)).attr("y2", y(stackRange.min))
                     .classed("hidden", false);
 
-            var population = yearData.Kokku.toString();
-            yearPopulationLabel.text("Population of " + d3.format(",d")(population)).classed("hidden", false);
+        /*    var population = yearData.Kokku.toString();
+            yearPopulationLabel.text("Population of " + d3.format(",d")(population)).classed("hidden", false);*/
 
-            var newData = [d3.entries(yearData).filter(function(d){return ageGroups.indexOf(d.key)!= -1})];
-            debugger;
+            var newData = filterAgeGroups(yearData);
 
             areaG.select("path").data(newData).transition().duration(500).attr("d",areaLine)
         }
@@ -289,30 +358,57 @@
             return {min: stackMin, max: stackMax}
         }
 
-        function draw_area(svg,areaLocationInfo, areaData){
+        function draw_sparklines(data){
+            var xExtent = d3.extent(data[0].values, function(d){return d.x}),
+                sparkY = d3.scaleLinear().range([20,0]),
+                sparkLine = d3.line()
+                    .curve(d3.curveCardinal)
+                    .x(function(d){return sparkX(d.x)})
+                    .y(function(d){return sparkY(d.y)});
 
-            areaG.attr("transform","translate(" + areaLocationInfo.x + "," + areaLocationInfo.y + ")");
+           svg.selectAll(".spark").data(data).enter().append("g").attr("class","sparkWrapper")
+               .attr("transform",function(d,i){return "translate("+ (width + margin.between) +"," + (i*130 + 25) + ")"  })
+               .each(function(sparkData,i){
+                   var sparkG = d3.select(this);
 
-            //areaG.append("rect").attr("width",areaLocationInfo.width).attr("height",areaLocationInfo.height);
+                   sparkG.append("text").text(sparkData.name)
+                           .attr("transform","translate(50,-15)");
 
+                   sparkG.append("text").attr("class","sparkValue").attr("transform","translate(50,45)").text("1230567");
 
-            areaX.range([0,areaLocationInfo.width]);
-            areaY.domain(ageGroups)
-                .range([areaLocationInfo.height,0]);
-              //  .padding(1);
+                   var yExtent = d3.extent(sparkData.values, function(d){return d.y});
+                   sparkY.domain(yExtent);
 
-            var a = [d3.entries(areaData.values[0]).filter(function(d){return ageGroups.indexOf(d.key)!= -1})];
+                   sparkYLocal.set(this,sparkY.copy());
 
-            areaG.selectAll("path")
-                .data(a)
-                .enter().append("path")
-                .attr("d", areaLine)
-                .style("fill", "grey");
+                   sparkG.selectAll("path").data([sparkData.values]).enter().append("path")
+                           .attr("d",sparkLine).style("fill","none").attr("stroke","black");
+
+                   sparkG.append("circle").attr("r",2).attr("fill","red").attr("class","sparkDot");
+
+               });
         }
 
+        function updateSparks(year){
+            var activeValues = sparksData.map(function(d){
+                return d.values.filter(function(d){return d.x==year})[0].y;
+            });
 
+            svg.selectAll(".sparkValue").data(activeValues).text(function(d){return d3.format(",d")(d)});
 
-    }
+            svg.selectAll(".sparkWrapper").each(function(d,i){
+                d3.select(this).select("circle")
+                        .attr("cx",sparkX(year))
+                        .attr("cy",sparkYLocal.get(this)(activeValues[i]));
+            })
+
+        }
+
+        function filterAgeGroups(yearData){
+            return [d3.entries(yearData).filter(function(d){return ageGroups.indexOf(d.key)!= -1})]
+        }
+
+    } // draw
 
     function type(row) {
         d3.keys(row).forEach(function(d){
@@ -323,7 +419,7 @@
         return row;
     }
 
-    d3.tsv("RV021.csv")
+    d3.csv("RV021.csv")
             .row(type)
             .get(draw);
 
