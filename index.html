@@ -34,7 +34,7 @@
 
 <script>
 
-    var margin = {top: 60, right: 170, bottom: 120, left: 50, between: 30};
+    var margin = {top: 60, right: 200, bottom: 120, left: 50, between: 55};
 
     var width = 800 - margin.right - margin.left,
     height = 480 - margin.top - margin.bottom;
@@ -66,6 +66,8 @@
     var sparkYLocal = d3.local();
 
     var sparkX = d3.scaleLinear().domain([1923,2040]).range([0,100]);
+
+    var sparkLine;
 
     function draw(error,data) {
 
@@ -153,6 +155,7 @@
                 .style("fill", function (_, i) {
                     return "url(#lg" + i + " )"
                 })
+                .attr("stroke","white").attr("stroke-width","0.5px")
                 .on("mouseover", mouseOver)
                 .on("mousemove", mouseMove)
                 .on("mouseout", mouseOut);
@@ -184,8 +187,10 @@
                 .attr("transform", "translate(0," + (height + 5) + ")")
                 .call(xAxis);
 
+        svg.append("text").text("Hover areas for details").attr("y",height-10)
+
         //////////////////////////////////////
-        // (6) Create birth year legend box //
+        // (6) Create birth years legend box //
         /////////////////////////////////////
         var legendBox = svg.append("g").attr("transform", "translate(0," + (height + 60) + ")");
 
@@ -211,12 +216,16 @@
                 });
 
         legendBox.append("rect").style("fill", "url(#legend_lg)")
-                .attr("width", width)
+                .attr("width", width/6*4)
                 .attr("height", 15)
-                .attr("x", 0)
+                .attr("x", width/6)
                 .attr("y", 10);
 
-        var boxAxis = d3.axisTop().scale(x.copy().domain([1843  , 2040]));
+        var boxAxis = d3.axisTop()
+                .ticks(7)
+                .scale(x.copy()
+                .range([width/6, width/6*5])
+                .domain([1840  , 2040]));
 
         legendBox.append("g")
                 .attr("class", "x axis")
@@ -237,7 +246,7 @@
             }});
 
         var averageAgeData = nested[0].values.map(function(d){
-            var values = filterAgeGroups(d)[0];
+            var values = filterAgeGroups(d);
             var numerator = d3.sum(values, function(d){
                                 return d3.mean(d.key.split("-")
                                             .map(function(d){return d=="85+" ? 88 : +d})
@@ -251,7 +260,7 @@
         });
 
         var retiredToWorkers = nested[0].values.map(function(d){
-            var values = filterAgeGroups(d)[0];
+            var values = filterAgeGroups(d);
             var retiredSum = d3.sum(values, function(d){
                 return +d.key.split("-")[0] >= 65 ?  d.value : d.key =="85+" ? d.value : 0;
             });
@@ -268,19 +277,37 @@
             }
         });
 
+        var ageGroupDynamics = {};
+        ageGroups.forEach(function(ageGroup){
+            ageGroupDynamics[ageGroup] = nested[0].values.map(function(d){
+                return {
+                    x: d.Aasta,
+                    y: d[ageGroup] / d3.sum(filterAgeGroups(d), function(x){ return x.value})
+                }
+            })
+        });
+
         var sparksData = [
-                            {
-                                values: populationSize,
-                                name: "Population size"
-                            },
-                            {
-                                values: averageAgeData,
-                                name: "Average age"
-                            },
-                            {
-                                values: retiredToWorkers,
-                                name: "Workers / retired ratio"
-                            }
+            {
+                values: populationSize,
+                name: "Population size",
+                id: "populationSize", format: ",d"
+            },
+            {
+                values: ageGroupDynamics["0-4"],
+                name: "0-4",
+                id: "customSpark", format: ",.1%"
+            },
+            {
+                values: averageAgeData,
+                name: "Average age",
+                id: "averageAge", format: ",d"
+            },
+            {
+                values: retiredToWorkers,
+                name: "20-64 to 65+ ratio",
+                id: "retiredToWorkers", format: ".2n"
+            }
                         ];
         draw_sparklines(sparksData);
 
@@ -295,7 +322,21 @@
                     .attr("y", function () {
                             return y((d[0][1] + d[0][0]) / 2) + 4
                         })
-                    .classed("hidden", false)
+                    .classed("hidden", false);
+
+            var customSpark = d3.select("#customSpark");
+            customSpark.each(function(){
+                var customY = sparkYLocal.get(this);
+                customY.domain(d3.extent(ageGroupDynamics[d.key],function(d){return d.y}));
+                sparkLine.y(function(d){return customY(d.y)});
+            });
+
+            customSpark.datum({name: d.key, values:ageGroupDynamics[d.key],format: ",.1%"});
+
+            customSpark.select(".sparkLabel").text(d.key);
+
+            customSpark.select("path")
+                .attr("d",sparkLine(ageGroupDynamics[d.key]));
         }
 
         function mouseMove(d) {
@@ -332,21 +373,24 @@
         ////////////////////////////
         function draw_sparklines(data){
             var xExtent = d3.extent(data[0].values, function(d){return d.x}),
-                sparkY = d3.scaleLinear().range([20,0]),
-                sparkLine = d3.line()
-                    .curve(d3.curveCardinal)
-                    .x(function(d){return sparkX(d.x)})
-                    .y(function(d){return sparkY(d.y)});
+                sparkY = d3.scaleLinear().range([20,0]);
+
+            sparkLine = d3.line()
+                .curve(d3.curveCardinal)
+                .x(function(d){return sparkX(d.x)})
+                .y(function(d){return sparkY(d.y)});
 
            svg.selectAll(".spark").data(data).enter().append("g").attr("class","sparkWrapper")
-               .attr("transform",function(d,i){return "translate("+ (width + margin.between) +"," + (i*120 + 25) + ")"  })
+               .attr("id",function(d){return d.id})
+               .attr("transform",function(d,i){return "translate("+ (width + margin.between) +"," + (i*100 + 25) + ")"  })
                .each(function(sparkData,i){
                    var sparkG = d3.select(this);
 
-                   sparkG.append("text").text(sparkData.name)
+                   sparkG.append("text").text(sparkData.name).attr("class","sparkLabel")
                            .attr("transform","translate(50,-12)");
 
-                   sparkG.append("text").attr("class","sparkValue").attr("transform","translate(50,42)").text("1230567");
+                   sparkG.append("text").attr("class","sparkValue").attr("transform","translate(50,42)");
+
 
                    var yExtent = d3.extent(sparkData.values, function(d){return d.y});
                    sparkY.domain(yExtent);
@@ -362,17 +406,16 @@
         }
 
         function updateSparks(year){
-            var activeValues = sparksData.map(function(d){
-                return d.values.filter(function(d){return d.x==year})[0].y;
-            });
 
-            svg.selectAll(".sparkValue").data(activeValues).text(function(d,i){
-                return i==2 ? d3.format(".2n")(d) : d3.format(",d")(d)});
+            svg.selectAll(".sparkWrapper").each(function(d){
+                var sparkG = d3.select(this),
+                    activeValue = d.values.filter(function(d){return d.x==year})[0].y;
 
-            svg.selectAll(".sparkWrapper").each(function(d,i){
+                sparkG.select(".sparkValue").text(d3.format(d.format)(activeValue));
+
                 d3.select(this).select("circle")
                         .attr("cx",sparkX(year))
-                        .attr("cy",sparkYLocal.get(this)(activeValues[i]));
+                        .attr("cy",sparkYLocal.get(this)(activeValue));
             })
 
         }
@@ -391,7 +434,7 @@
         }
 
         function filterAgeGroups(yearData){
-            return [d3.entries(yearData).filter(function(d){return ageGroups.indexOf(d.key)!= -1})]
+            return d3.entries(yearData).filter(function(d){return ageGroups.indexOf(d.key)!= -1})
         }
 
     } // draw
