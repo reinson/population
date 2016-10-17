@@ -34,7 +34,7 @@
 
 <script>
 
-    var margin = {top: 60, right: 200, bottom: 120, left: 50, between: 55};
+    var margin = {top: 60, right: 200, bottom: 120, left: 65, between: 50};
 
     var width = 800 - margin.right - margin.left,
     height = 480 - margin.top - margin.bottom;
@@ -163,8 +163,10 @@
         //////////////////////////////////
         // (5) Create labels and guides //
         /////////////////////////////////
-        var ageRangeLabel = svg.append("text").attr("x", -40).attr("class", "hidden"),
-            yearLabel = svg.append("text").attr("class", "hidden").attr("text-anchor","middle"),
+        var ageRangeLabel = svg.append("text").attr("x", -5).attr("class", "hidden")
+                .attr("text-anchor","end");
+
+        var yearLabel = svg.append("text").attr("class", "hidden").attr("text-anchor","middle"),
             yearLine = svg.append("line").attr("x1", 100).attr("x2", 100).attr("y1", 20).attr("y2", 400)
                         .attr("stroke-width", "2px").attr("stroke", "white").attr("class", "hidden")
                         .attr("opacity", 0.6).style("pointer-events", "none");
@@ -187,7 +189,7 @@
                 .attr("transform", "translate(0," + (height + 5) + ")")
                 .call(xAxis);
 
-        svg.append("text").text("Hover areas for details").attr("y",height-10)
+        svg.append("text").text("Hover areas for details").attr("y",height-10);
 
         //////////////////////////////////////
         // (6) Create birth years legend box //
@@ -306,7 +308,7 @@
             {
                 values: retiredToWorkers,
                 name: "20-64 to 65+ ratio",
-                id: "retiredToWorkers", format: ".2n"
+                id: "retiredToWorkers", format: ".2n", valueEnding: " : 1"
             }
                         ];
         draw_sparklines(sparksData);
@@ -411,7 +413,11 @@
                 var sparkG = d3.select(this),
                     activeValue = d.values.filter(function(d){return d.x==year})[0].y;
 
-                sparkG.select(".sparkValue").text(d3.format(d.format)(activeValue));
+                sparkG.select(".sparkValue")
+                        .text(function(){
+                            var value = d3.format(d.format)(activeValue);
+                            return d.valueEnding ? value + d.valueEnding : value;
+                        })
 
                 d3.select(this).select("circle")
                         .attr("cx",sparkX(year))
