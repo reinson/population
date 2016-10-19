@@ -77,6 +77,7 @@
         .offset(d3.stackOffsetWiggle );
 
     var xAxis = d3.axisBottom()
+        .tickFormat(d3.format(""))
         .scale(x);
 
     var yAxis = d3.axisRight()
@@ -254,6 +255,7 @@
 
         var boxAxis = d3.axisTop()
                 .ticks(7)
+                .tickFormat(d3.format(""))
                 .scale(x.copy()
                 .range([width/6, width/6*5])
                 .domain([1840  , 2040]));
